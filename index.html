@@ -26,7 +26,7 @@
         import { getFirestore, collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDoc } from "firebase/firestore";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-        // 🔧 請更換為你自己的 Firebase 設定
+        // 🔧 你的 Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyDQBtX1yb-Yid4OjFiaL3b6Jn3NWbpemKY",
             authDomain: "baoantemple1.firebaseapp.com",
@@ -43,6 +43,8 @@
             const storage = getStorage(app);
             window.__FIREBASE_DB__ = db;
             window.__FIREBASE_STORAGE__ = storage;
+            // ✅ 將 Firestore 與 Storage 函式掛載到 window，讓其他 script 可以使用
+            window.__FIREBASE_FNS__ = { collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDoc, ref, uploadBytes, getDownloadURL };
             window.__FIREBASE_READY__ = true;
             console.log('✅ Firebase 已初始化');
             window.dispatchEvent(new Event('firebase-ready'));
@@ -53,6 +55,7 @@
     </script>
 
     <style>
+        /* ====== 此處為完整 CSS，與你原本的完全相同，一字不漏 ====== */
         :root {
             scroll-behavior: smooth;
         }
@@ -1676,6 +1679,10 @@
     </div>
     <script>
         (function () {
+            // 取得掛載在 window 上的 Firebase 函式
+            const fns = window.__FIREBASE_FNS__ || {};
+            const { collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDoc, ref, uploadBytes, getDownloadURL } = fns;
+
             let db = null;
             let storage = null;
             let deitiesExpanded = false;
@@ -1852,32 +1859,20 @@
             window.addEventListener('scroll', () => { if (window.scrollY > 500) { backBtn.classList.remove('hidden'); } else { backBtn.classList.add('hidden'); } });
             backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-            // 後台齒輪按鈕
             const overlay = document.getElementById('adminOverlay');
             document.getElementById('adminTriggerBtn')?.addEventListener('click', () => {
                 if (!overlay) return;
                 overlay.classList.add('show');
-                if (typeof window.showAdminLogin === 'function') {
-                    window.showAdminLogin();
-                } else {
-                    const loginArea = document.getElementById('adminLoginArea');
-                    if (loginArea) loginArea.innerHTML = '<p style="color:red;">登入功能暫時無法使用，請檢查 Firebase 設定。</p>';
-                }
+                if (typeof window.showAdminLogin === 'function') window.showAdminLogin();
+                else { const loginArea = document.getElementById('adminLoginArea'); if (loginArea) loginArea.innerHTML = '<p style="color:red;">登入功能暫時無法使用，請檢查 Firebase 設定。</p>'; }
             });
             document.getElementById('closeAdminBtn')?.addEventListener('click', () => overlay?.classList.remove('show'));
             overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
 
-            // 留言送出按鈕
-            document.getElementById('submitMessageBtn')?.addEventListener('click', () => {
-                if (typeof window.handleSubmitMessage === 'function') window.handleSubmitMessage();
-            });
-
-            // 載入更多按鈕
+            document.getElementById('submitMessageBtn')?.addEventListener('click', () => { if (typeof window.handleSubmitMessage === 'function') window.handleSubmitMessage(); });
             document.getElementById('loadMoreDeitiesBtn')?.addEventListener('click', () => { if (typeof window.renderFrontDeities === 'function') { window.deitiesExpanded = true; window.renderFrontDeities(); document.getElementById('deities').scrollIntoView({ behavior: 'smooth' }); } });
             document.getElementById('loadMoreNewsBtn')?.addEventListener('click', () => { if (typeof window.renderFrontNews === 'function') { window.newsExpanded = true; window.renderFrontNews(); } });
             document.getElementById('loadMoreAlbumsBtn')?.addEventListener('click', () => { if (typeof window.renderFrontAlbumsPreview === 'function') { window.albumsExpanded = true; window.renderFrontAlbumsPreview(); } });
-
-            // 匯出按鈕
             document.getElementById('exportSiteBtn')?.addEventListener('click', () => { if (typeof window.exportWebsite === 'function') window.exportWebsite(); });
         });
     </script>
