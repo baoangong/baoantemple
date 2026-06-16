@@ -10,50 +10,50 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-    <!-- Firebase Import Map -->
-    <script type="importmap">
-        {
-            "imports": {
-                "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js",
-                "firebase/storage": "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"
-            }
-        }
-    </script>
+    <!-- 移除原本的 importmap 與 module script -->
+    <!-- 改為載入 Firebase Compat 函式庫 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
-    <script type="module">
-        import { initializeApp } from "firebase/app";
-        import { getFirestore, collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, onSnapshot, getDoc } from "firebase/firestore";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
+    <script>
+        // Firebase 配置
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyDQBtX1yb-Yid4OjFiaL3b6Jn3NWbpemKY",
+            authDomain: "baoantemple1.firebaseapp.com",
+            projectId: "baoantemple1",
+            storageBucket: "baoantemple1.firebasestorage.app",
+            messagingSenderId: "48604297963",
+            appId: "1:48604297963:web:fca258bb20da5a94285cae",
+            measurementId: "G-DLHZ6HTWH7"
         };
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const storage = getStorage(app);
-            window.__FIREBASE_DB__ = db;
-            window.__FIREBASE_STORAGE__ = storage;
-            // 將 Firestore/Storage 函式掛載到 window 上，供外部 script 使用
-            window.__FIREBASE_FNS__ = {
-                collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-                writeBatch, onSnapshot, getDoc,
-                ref, uploadBytes, getDownloadURL
-            };
-            window.__FIREBASE_READY__ = true;
-            console.log('✅ Firebase 已初始化');
-            window.dispatchEvent(new Event('firebase-ready'));
-        } catch (error) {
-            console.error('❌ Firebase 初始化失敗:', error);
-            alert('Firebase 初始化失敗，請檢查設定。錯誤訊息：' + error.message);
-        }
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // 暴露給全域
+        window.__FIREBASE_DB__ = db;
+        window.__FIREBASE_STORAGE__ = storage;
+        window.__FIREBASE_FNS__ = {
+            collection: (db, path) => db.collection(path),
+            doc: (db, path, ...segments) => db.doc([path, ...segments].join('/')),
+            getDocs: (query) => query.get(),
+            setDoc: (docRef, data) => docRef.set(data),
+            addDoc: (colRef, data) => colRef.add(data),
+            updateDoc: (docRef, data) => docRef.update(data),
+            deleteDoc: (docRef) => docRef.delete(),
+            writeBatch: (db) => db.batch(),
+            onSnapshot: (query, callback, errorCallback) => query.onSnapshot(callback, errorCallback),
+            getDoc: (docRef) => docRef.get(),
+            ref: (storage, path) => storage.ref(path),
+            uploadBytes: (ref, file) => ref.put(file),
+            getDownloadURL: (ref) => ref.getDownloadURL()
+        };
+        window.__FIREBASE_READY__ = true;
+        console.log('✅ Firebase 已初始化 (Compat)');
+        window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
     <style>
@@ -1328,7 +1328,7 @@
     <nav class="navbar">
         <div class="container nav-container">
             <a class="logo" id="logoHomeBtn" title="回首頁">
-                <i class="fas fa-temple" style="font-size:2rem;color:#ffecb3;"></i>
+                <img src="logo.png" alt="LOGO" style="height:36px;">
                 <div class="logo-text">
                     <h1>二林萬興保安宮</h1>
                     <p>神威顯赫 · 護佑萬民</p>
@@ -1394,6 +1394,7 @@
                     </div>
                     <div class="about-icon"><i class="fas fa-temple"></i></div>
                 </div>
+            </div>
         </section>
 
         <section id="deities">
@@ -1466,6 +1467,7 @@
                             width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"
                             referrerpolicy="no-referrer-when-downgrade"></iframe></div>
                 </div>
+            </div>
         </section>
     </div>
 
@@ -1651,16 +1653,17 @@
             let fns = null;
             let db = null;
             let storage = null;
-            let deitiesExpanded = false;
-            let newsExpanded = false;
-            let albumsExpanded = false;
-            let currentAlbumId = null;
-            let currentAlbumPage = 1;
-            const perPage = 12;
             let adminLogged = false;
-            let sortablePhotos = null;
             let activeUnsubscribers = [];
+            let deitiesExpanded = false,
+                newsExpanded = false,
+                albumsExpanded = false;
+            let currentAlbumId = null,
+                currentAlbumPage = 1;
+            const perPage = 12;
+            let sortablePhotos = null;
 
+            // ---------- 資料快取 ----------
             let cachedDeities = [];
             let cachedNews = [];
             let cachedAlbums = [];
@@ -1670,6 +1673,7 @@
             let cachedHeroBg = '';
             let cachedLampConfig = { enabled: true, noticeTitle: '年度點燈已開放', noticeMessage: '即日起至農曆正月十五止，歡迎線上登記點燈祈福。' };
 
+            // ---------- 預設資料 ----------
             const defaultDeities = [
                 { id: 'd1', name: '保生大帝', shortDesc: '醫神大道公，慈濟眾生。', detailDesc: '保生大帝，姓吳名夲，宋代名醫，懸壺濟世，深受百姓愛戴，醫術精湛，救人無數。信徒尊稱為「大道公」或「吳真人」，為民間信仰中重要的醫藥之神。', sub: '農曆三月十五', bgImage: '' },
                 { id: 'd2', name: '玉皇大帝', shortDesc: '天公祖，三界統御。', detailDesc: '玉皇大帝，即昊天上帝，統御三界十方，為天界最高神祇，掌管宇宙萬物之運行。民間尊稱為「天公」，農曆正月初九為天公生。', sub: '農曆正月初九', bgImage: '' },
@@ -1686,36 +1690,235 @@
                 { id: 'a2', name: '點燈祈福', desc: '信眾虔誠點燈，祈求平安', coverUrl: '', photoCount: 0, order: 1 }
             ];
 
+            // ---------- 工具函數 ----------
             function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
-            function sanitizeHTML(html) { const div = document.createElement('div'); div.innerHTML = html; div.querySelectorAll('script').forEach(el => el.remove()); div.querySelectorAll('*').forEach(el => { Array.from(el.attributes).forEach(attr => { if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.startsWith('javascript:'))) el.removeAttribute(attr.name); }); }); return div.innerHTML; }
-            function showSyncStatus(msg, duration = 2500) { const el = document.getElementById('syncStatus'); if (!el) return; el.textContent = msg; el.style.opacity = '1'; clearTimeout(el._timeout); el._timeout = setTimeout(() => { el.style.opacity = '0'; }, duration); }
+
+            function sanitizeHTML(html) {
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                div.querySelectorAll('script').forEach(el => el.remove());
+                div.querySelectorAll('*').forEach(el => {
+                    Array.from(el.attributes).forEach(attr => {
+                        if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.startsWith('javascript:')))
+                            el.removeAttribute(attr.name);
+                    });
+                });
+                return div.innerHTML;
+            }
+
+            function showSyncStatus(msg, duration = 2500) {
+                const el = document.getElementById('syncStatus');
+                if (!el) return;
+                el.textContent = msg;
+                el.style.opacity = '1';
+                clearTimeout(el._timeout);
+                el._timeout = setTimeout(() => { el.style.opacity = '0'; }, duration);
+            }
+
             async function uploadFileToStorage(file, path) { if (!storage || !fns) throw new Error('Storage 未就緒'); const storageRef = fns.ref(storage, path); await fns.uploadBytes(storageRef, file); return await fns.getDownloadURL(storageRef); }
+
             function getFirestoreRefs() { if (!db || !fns) return null; return { deitiesCol: fns.collection(db, 'deities'), newsCol: fns.collection(db, 'news'), albumsCol: fns.collection(db, 'albums'), messagesCol: fns.collection(db, 'messages'), registrationsCol: fns.collection(db, 'registrations'), configDoc: (id) => fns.doc(db, 'config', id), photosCol: (albumId) => fns.collection(db, 'albums', albumId, 'photos') }; }
 
+            // ---------- 密碼相關（修正 HTTPS 問題） ----------
             async function hashPassword(password) {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(password);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                return hashHex;
-            }
-
-            async function verifyPassword(inputPassword) {
-                if (!db || !fns) { alert('雲端尚未連線'); return false; }
-                const adminRef = fns.doc(db, 'config', 'admin');
-                const docSnap = await fns.getDoc(adminRef);
-                if (!docSnap.exists()) {
-                    const defaultHash = await hashPassword('admin8682246');
-                    await fns.setDoc(adminRef, { passwordHash: defaultHash, isInitialized: true, createdAt: new Date().toISOString() });
-                    const inputHash = await hashPassword(inputPassword);
-                    return inputHash === defaultHash;
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) {
+                    console.error('hashPassword 失敗:', e);
+                    throw new Error('密碼加密失敗，請確認使用 HTTPS 連線。');
                 }
-                const storedHash = docSnap.data().passwordHash;
-                const inputHash = await hashPassword(inputPassword);
-                return storedHash === inputHash;
             }
 
+            async function verifyPassword(inputPassword, maxRetries = 3) {
+                if (!db || !fns) {
+                    throw new Error('Firebase 尚未初始化，請稍後再試');
+                }
+
+                let lastError = null;
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        // 嘗試讀取 admin 文件
+                        const adminRef = fns.doc(db, 'config', 'admin');
+                        const docSnap = await fns.getDoc(adminRef);
+                        const defaultHash = await hashPassword('admin8682246');
+
+                        if (!docSnap.exists()) {
+                            // 首次使用，寫入預設密碼
+                            await fns.setDoc(adminRef, {
+                                passwordHash: defaultHash,
+                                isInitialized: true,
+                                createdAt: new Date().toISOString()
+                            });
+                            const inputHash = await hashPassword(inputPassword);
+                            return inputHash === defaultHash;
+                        }
+
+                        const storedHash = docSnap.data().passwordHash;
+                        const inputHash = await hashPassword(inputPassword);
+                        return storedHash === inputHash;
+                    } catch (err) {
+                        console.warn(`驗證嘗試 ${attempt}/${maxRetries} 失敗:`, err.message);
+                        lastError = err;
+
+                        // 如果是離線錯誤，等待後重試
+                        if (err.message.includes('offline') || err.code === 'unavailable') {
+                            if (attempt < maxRetries) {
+                                const delay = 1000 * attempt; // 遞增等待
+                                console.log(`等待 ${delay}ms 後重試...`);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue;
+                            }
+                        }
+                        // 其他錯誤（如權限不足）直接中斷
+                        break;
+                    }
+                }
+                // 所有嘗試失敗
+                throw new Error('驗證失敗：' + (lastError ? lastError.message : '請檢查網路或密碼'));
+            }
+
+            // ---------- 後台登入/登出 ----------
+            function showAdminLogin() {
+                const loginDiv = document.getElementById('adminLoginArea');
+                const contentDiv = document.getElementById('adminContentArea');
+                if (!loginDiv || !contentDiv) return;
+
+                if (adminLogged) {
+                    loginDiv.style.display = 'none';
+                    contentDiv.style.display = 'block';
+                    renderAdminAlbums();
+                    renderAdminAlbumSelect();
+                    renderAdminNewsList();
+                    renderAdminMessages();
+                    renderAdminDeities();
+                    renderAdminRegistrations();
+                    renderAdminLampConfig();
+                    initAdminTabs();
+                    document.getElementById('logoutAdminBtn').onclick = logoutAdmin;
+                    return;
+                }
+
+                loginDiv.style.display = 'block';
+                contentDiv.style.display = 'none';
+                loginDiv.innerHTML = `
+                    <div class="login-prompt">
+                        <i class="fas fa-lock"></i>
+                        <h3>管理者驗證</h3>
+                        <p>請輸入後台管理密碼</p>
+                        <input type="password" id="adminPwd" placeholder="請輸入密碼" style="font-family:inherit;">
+                        <br>
+                        <button id="loginSubmitBtn" class="btn-gold" style="margin-top:10px;">登入後台</button>
+                        <p id="loginMsg" style="color:#a13e2a; margin-top:10px;"></p>
+                    </div>
+                `;
+
+                document.getElementById('loginSubmitBtn')?.addEventListener('click', async () => {
+                    const pwd = document.getElementById('adminPwd').value;
+                    const msgEl = document.getElementById('loginMsg');
+                    if (!pwd) {
+                        msgEl.innerText = '請輸入密碼';
+                        return;
+                    }
+                    if (!db || !fns) {
+                        msgEl.innerText = '⚠️ 雲端尚未連線，請稍後再試';
+                        return;
+                    }
+                    msgEl.innerText = '⏳ 驗證中...';
+                    msgEl.style.color = '#000';
+                    try {
+                        const isValid = await verifyPassword(pwd);
+                        if (isValid) {
+                            adminLogged = true;
+                            showAdminLogin();
+                            showSyncStatus('✅ 已登入管理後台', 2000);
+                        } else {
+                            msgEl.innerText = '❌ 密碼錯誤，請重新輸入';
+                            msgEl.style.color = '#a13e2a';
+                        }
+                    } catch (err) {
+                        msgEl.innerText = '❌ ' + err.message;
+                        msgEl.style.color = '#a13e2a';
+                    }
+                });
+            }
+
+            function logoutAdmin() {
+                adminLogged = false;
+                showAdminLogin();
+                alert('已安全登出管理後台');
+            }
+
+            function initAdminTabs() {
+                const btns = document.querySelectorAll('.admin-tab button');
+                btns.forEach(btn => {
+                    btn.addEventListener('click', function (e) {
+                        const tabId = e.currentTarget.dataset.tab;
+                        document.querySelectorAll('.admin-tab-content').forEach(t => t.classList.remove('active'));
+                        const targetTab = document.getElementById(tabId);
+                        if (targetTab) targetTab.classList.add('active');
+                        btns.forEach(b => b.classList.remove('active'));
+                        e.currentTarget.classList.add('active');
+                    });
+                });
+                if (btns.length > 0) btns[0].click();
+                setupPasswordChange();
+            }
+
+            function setupPasswordChange() {
+                const changeBtn = document.getElementById('changePasswordBtn');
+                const msgEl = document.getElementById('passwordMsg');
+                if (!changeBtn) return;
+                changeBtn.addEventListener('click', async () => {
+                    const oldPwd = document.getElementById('oldPassword').value;
+                    const newPwd = document.getElementById('newPassword').value;
+                    const confirmPwd = document.getElementById('confirmPassword').value;
+                    if (!oldPwd || !newPwd || !confirmPwd) {
+                        msgEl.innerHTML = '❌ 請填寫所有欄位';
+                        msgEl.style.color = '#a13e2a';
+                        return;
+                    }
+                    if (newPwd !== confirmPwd) {
+                        msgEl.innerHTML = '❌ 新密碼與確認密碼不一致';
+                        msgEl.style.color = '#a13e2a';
+                        return;
+                    }
+                    if (newPwd.length < 6) {
+                        msgEl.innerHTML = '❌ 新密碼至少 6 個字元';
+                        msgEl.style.color = '#a13e2a';
+                        return;
+                    }
+                    const isOldValid = await verifyPassword(oldPwd);
+                    if (!isOldValid) {
+                        msgEl.innerHTML = '❌ 舊密碼錯誤';
+                        msgEl.style.color = '#a13e2a';
+                        return;
+                    }
+                    try {
+                        const newHash = await hashPassword(newPwd);
+                        const adminRef = fns.doc(db, 'config', 'admin');
+                        await fns.setDoc(adminRef, {
+                            passwordHash: newHash,
+                            isInitialized: true,
+                            lastChanged: new Date().toISOString()
+                        });
+                        msgEl.innerHTML = '✅ 密碼修改成功！';
+                        msgEl.style.color = '#2c6e2c';
+                        document.getElementById('oldPassword').value = '';
+                        document.getElementById('newPassword').value = '';
+                        document.getElementById('confirmPassword').value = '';
+                        showSyncStatus('🔑 後台密碼已更新', 2000);
+                    } catch (err) {
+                        msgEl.innerHTML = '❌ 修改失敗：' + err.message;
+                        msgEl.style.color = '#a13e2a';
+                    }
+                });
+            }
+
+            // ---------- Firestore 初始化和監聽 ----------
             async function initFirestoreDefaults() {
                 if (!db || !fns) return;
                 const refs = getFirestoreRefs();
@@ -1765,199 +1968,350 @@
                 }
             }
 
-            function applyHeroBackground() { const heroEl = document.querySelector('#home.hero'); if (!heroEl) return; heroEl.style.backgroundImage = cachedHeroBg ? `url(${cachedHeroBg})` : `url('https://source.unsplash.com/featured/1600x700?temple,chinese,lantern')`; }
+            // ---------- 渲染函數 (前端) ----------
+            function applyHeroBackground() {
+                const heroEl = document.querySelector('#home.hero');
+                if (!heroEl) return;
+                heroEl.style.backgroundImage = cachedHeroBg ? `url(${cachedHeroBg})` : `url('https://source.unsplash.com/featured/1600x700?temple,chinese,lantern')`;
+            }
 
             function renderFrontDeities() {
-                const deities = cachedDeities; const limit = 6; const showAll = deitiesExpanded || deities.length <= limit;
+                const deities = cachedDeities;
+                const limit = 6;
+                const showAll = deitiesExpanded || deities.length <= limit;
                 const display = showAll ? deities : deities.slice(0, limit);
-                const container = document.getElementById('deitiesContainer'); if (!container) return;
-                container.innerHTML = display.map(d => `<div class="deity-card" data-id="${escapeHtml(d.id)}" style="background-image: url('${escapeHtml(d.bgImage || '')}');"><h3>${escapeHtml(d.name)}</h3><p>${escapeHtml(d.shortDesc)}</p><small>${escapeHtml(d.sub)}</small></div>`).join('');
-                const loadMoreBtn = document.getElementById('loadMoreDeitiesBtn'); if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && deities.length > limit) ? 'block' : 'none';
+                const container = document.getElementById('deitiesContainer');
+                if (!container) return;
+                container.innerHTML = display.map(d =>
+                    `<div class="deity-card" data-id="${escapeHtml(d.id)}" style="background-image: url('${escapeHtml(d.bgImage || '')}');"><h3>${escapeHtml(d.name)}</h3><p>${escapeHtml(d.shortDesc)}</p><small>${escapeHtml(d.sub)}</small></div>`
+                ).join('');
+                const loadMoreBtn = document.getElementById('loadMoreDeitiesBtn');
+                if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && deities.length > limit) ? 'block' : 'none';
                 document.querySelectorAll('.deity-card').forEach(c => c.addEventListener('click', () => showDeityDetail(c.dataset.id)));
             }
-            function showDeityDetail(id) { const d = cachedDeities.find(x => x.id === id); if (!d) return; document.getElementById('deityDetailBg').src = d.bgImage || ''; document.getElementById('deityDetailTitle').innerText = d.name; document.getElementById('deityDetailContent').innerHTML = `<p>${escapeHtml(d.detailDesc || d.shortDesc)}</p>`; document.getElementById('mainContent').classList.add('hide'); document.getElementById('deityDetailView').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-            function hideDeityDetail() { document.getElementById('mainContent').classList.remove('hide'); document.getElementById('deityDetailView').style.display = 'none'; document.getElementById('deities').scrollIntoView({ behavior: 'smooth' }); }
 
-            function renderAdminDeities() {
-                const container = document.getElementById('deityManagerGrid'); if (!container) return;
-                container.innerHTML = cachedDeities.map(d => `<div class="deity-admin-card" data-id="${escapeHtml(d.id)}"><input class="deity-name" value="${escapeHtml(d.name)}" style="font-family:inherit;"><textarea class="deity-short-desc" rows="2" style="font-family:inherit;">${escapeHtml(d.shortDesc)}</textarea><textarea class="deity-detail-desc" rows="4" style="font-family:inherit;">${escapeHtml(d.detailDesc || '')}</textarea><input class="deity-sub" value="${escapeHtml(d.sub)}" style="font-family:inherit;"><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;"><input class="deity-bg-url" placeholder="圖片網址或上傳後自動填入" value="${escapeHtml(d.bgImage || '')}" style="flex:1; min-width:150px; font-family:inherit;"><button class="upload-bg-btn" data-id="${escapeHtml(d.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">📤 上傳</button><button class="remove-bg-btn" data-id="${escapeHtml(d.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">移除</button></div><div class="bg-preview">${d.bgImage ? `<img src="${escapeHtml(d.bgImage)}" style="max-width:120px; border-radius:12px;">` : '尚無圖片'}</div><div><button class="save-deity-btn" data-id="${escapeHtml(d.id)}" style="background:#e2a526; color:#2c1c0c; border:none; padding:8px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit;">儲存修改</button> <button class="delete-deity-btn" data-id="${escapeHtml(d.id)}" style="background:#a13e2a; color:white; border:none; padding:8px 18px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除神明</button></div></div>`).join('');
+            function showDeityDetail(id) {
+                const d = cachedDeities.find(x => x.id === id);
+                if (!d) return;
+                document.getElementById('deityDetailBg').src = d.bgImage || '';
+                document.getElementById('deityDetailTitle').innerText = d.name;
+                document.getElementById('deityDetailContent').innerHTML = `<p>${escapeHtml(d.detailDesc || d.shortDesc)}</p>`;
+                document.getElementById('mainContent').classList.add('hide');
+                document.getElementById('deityDetailView').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function hideDeityDetail() {
+                document.getElementById('mainContent').classList.remove('hide');
+                document.getElementById('deityDetailView').style.display = 'none';
+                document.getElementById('deities').scrollIntoView({ behavior: 'smooth' });
             }
 
             function renderFrontNews() {
-                const news = cachedNews; const limit = 6; const showAll = newsExpanded || news.length <= limit;
+                const news = cachedNews;
+                const limit = 6;
+                const showAll = newsExpanded || news.length <= limit;
                 const display = showAll ? news : news.slice(0, limit);
-                const container = document.getElementById('newsContainer'); if (!container) return;
-                container.innerHTML = display.map(item => `<div class="news-item"><div><div class="news-date"><i class="far fa-calendar-alt"></i> ${escapeHtml(item.date)}</div><div class="news-title">${escapeHtml(item.title)}</div><div class="news-summary">${escapeHtml(item.summary)}</div></div><button class="read-more-btn" data-id="${escapeHtml(item.id)}">閱讀更多 <i class="fas fa-arrow-right"></i></button></div>`).join('');
-                const loadMoreBtn = document.getElementById('loadMoreNewsBtn'); if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && news.length > limit) ? 'block' : 'none';
+                const container = document.getElementById('newsContainer');
+                if (!container) return;
+                container.innerHTML = display.map(item =>
+                    `<div class="news-item"><div><div class="news-date"><i class="far fa-calendar-alt"></i> ${escapeHtml(item.date)}</div><div class="news-title">${escapeHtml(item.title)}</div><div class="news-summary">${escapeHtml(item.summary)}</div></div><button class="read-more-btn" data-id="${escapeHtml(item.id)}">閱讀更多 <i class="fas fa-arrow-right"></i></button></div>`
+                ).join('');
+                const loadMoreBtn = document.getElementById('loadMoreNewsBtn');
+                if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && news.length > limit) ? 'block' : 'none';
                 document.querySelectorAll('.read-more-btn').forEach(btn => btn.addEventListener('click', () => showNewsDetail(btn.dataset.id)));
             }
-            function showNewsDetail(id) { const n = cachedNews.find(x => x.id === id); if (!n) return; document.getElementById('newsDetailTitle').innerText = n.title; document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-calendar-alt"></i> ${escapeHtml(n.date)}`; document.getElementById('newsDetailContent').innerHTML = sanitizeHTML(n.detail); document.getElementById('mainContent').classList.add('hide'); document.getElementById('newsDetailView').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-            function hideNewsDetail() { document.getElementById('mainContent').classList.remove('hide'); document.getElementById('newsDetailView').style.display = 'none'; document.getElementById('news').scrollIntoView({ behavior: 'smooth' }); }
 
-            function renderAdminNewsList() {
-                const container = document.getElementById('adminNewsList'); if (!container) return;
-                container.innerHTML = cachedNews.map(item => `<div class="admin-item"><div><strong>${escapeHtml(item.title)}</strong><br>${escapeHtml(item.date)}<p>${escapeHtml(item.summary)}</p></div><div><button class="edit-news-btn" data-id="${escapeHtml(item.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">編輯</button> <button class="delete-news-btn" data-id="${escapeHtml(item.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div></div>`).join('');
+            function showNewsDetail(id) {
+                const n = cachedNews.find(x => x.id === id);
+                if (!n) return;
+                document.getElementById('newsDetailTitle').innerText = n.title;
+                document.getElementById('newsDetailDate').innerHTML = `<i class="far fa-calendar-alt"></i> ${escapeHtml(n.date)}`;
+                document.getElementById('newsDetailContent').innerHTML = sanitizeHTML(n.detail);
+                document.getElementById('mainContent').classList.add('hide');
+                document.getElementById('newsDetailView').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function hideNewsDetail() {
+                document.getElementById('mainContent').classList.remove('hide');
+                document.getElementById('newsDetailView').style.display = 'none';
+                document.getElementById('news').scrollIntoView({ behavior: 'smooth' });
             }
 
             function renderFrontAlbumsPreview() {
-                const albums = cachedAlbums; const limit = 6; const showAll = albumsExpanded || albums.length <= limit;
+                const albums = cachedAlbums;
+                const limit = 6;
+                const showAll = albumsExpanded || albums.length <= limit;
                 const display = showAll ? albums : albums.slice(0, limit);
-                const container = document.getElementById('albumsPreviewContainer'); if (!container) return;
+                const container = document.getElementById('albumsPreviewContainer');
+                if (!container) return;
                 if (albums.length === 0) { container.innerHTML = '<div style="text-align:center; padding:30px; color:#8b6946;">暫無相簿，請至後台新增。</div>'; return; }
-                container.innerHTML = display.map(album => { const coverUrl = album.coverUrl || 'https://via.placeholder.com/400x200?text=No+Image'; return `<div class="album-card" data-id="${escapeHtml(album.id)}"><img class="album-cover" src="${escapeHtml(coverUrl)}" onerror="this.src='https://via.placeholder.com/400x200?text=Error'"><div class="album-info"><div class="album-title">${escapeHtml(album.name)}</div><div class="album-count">${album.photoCount || 0} 張照片</div></div></div>`; }).join('');
-                const loadMoreBtn = document.getElementById('loadMoreAlbumsBtn'); if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && albums.length > limit) ? 'block' : 'none';
+                container.innerHTML = display.map(album => {
+                    const coverUrl = album.coverUrl || 'https://via.placeholder.com/400x200?text=No+Image';
+                    return `<div class="album-card" data-id="${escapeHtml(album.id)}"><img class="album-cover" src="${escapeHtml(coverUrl)}" onerror="this.src='https://via.placeholder.com/400x200?text=Error'"><div class="album-info"><div class="album-title">${escapeHtml(album.name)}</div><div class="album-count">${album.photoCount || 0} 張照片</div></div></div>`;
+                }).join('');
+                const loadMoreBtn = document.getElementById('loadMoreAlbumsBtn');
+                if (loadMoreBtn) loadMoreBtn.style.display = (!showAll && albums.length > limit) ? 'block' : 'none';
                 document.querySelectorAll('.album-card').forEach(card => card.addEventListener('click', () => showSingleAlbum(card.dataset.id)));
             }
-            function showSingleAlbum(albumId) { currentAlbumId = albumId; currentAlbumPage = 1; const album = cachedAlbums.find(a => a.id === albumId); document.getElementById('albumTitle').innerText = album ? album.name : '相簿'; document.getElementById('mainContent').classList.add('hide'); document.getElementById('singleAlbumView').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' }); setupAlbumPhotosListener(albumId); }
+
+            function showSingleAlbum(albumId) {
+                currentAlbumId = albumId;
+                currentAlbumPage = 1;
+                const album = cachedAlbums.find(a => a.id === albumId);
+                document.getElementById('albumTitle').innerText = album ? album.name : '相簿';
+                document.getElementById('mainContent').classList.add('hide');
+                document.getElementById('singleAlbumView').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setupAlbumPhotosListener(albumId);
+            }
+
             function setupAlbumPhotosListener(albumId) {
                 if (!db || !fns) return;
                 activeUnsubscribers = activeUnsubscribers.filter(unsub => { if (unsub._type === 'album-photos') { try { unsub(); } catch (e) { } return false; } return true; });
-                const refs = getFirestoreRefs(); if (!refs) return;
-                const unsub = fns.onSnapshot(refs.photosCol(albumId), (snapshot) => { cachedPhotos = snapshot.docs.map(d => ({ id: d.id, ...d.data(), albumId })); renderAlbumPhotos(); });
-                unsub._type = 'album-photos'; activeUnsubscribers.push(unsub);
+                const refs = getFirestoreRefs();
+                if (!refs) return;
+                const unsub = fns.onSnapshot(refs.photosCol(albumId), (snapshot) => {
+                    cachedPhotos = snapshot.docs.map(d => ({ id: d.id, ...d.data(), albumId }));
+                    renderAlbumPhotos();
+                });
+                unsub._type = 'album-photos';
+                activeUnsubscribers.push(unsub);
             }
+
             function renderAlbumPhotos() {
                 const photos = [...cachedPhotos].sort((a, b) => (a.order || 0) - (b.order || 0));
-                const start = (currentAlbumPage - 1) * perPage; const pagePhotos = photos.slice(start, start + perPage);
-                const grid = document.getElementById('albumPhotosGrid'); if (!grid) return;
-                grid.innerHTML = pagePhotos.map(p => `<div class="album-photo-item"><a href="${escapeHtml(p.url)}" target="_blank"><img src="${escapeHtml(p.thumbnail || p.url)}" onerror="this.style.opacity='0.5'" loading="lazy"></a></div>`).join('');
-                const total = photos.length; const pagDiv = document.getElementById('albumPagination'); if (!pagDiv) return;
+                const start = (currentAlbumPage - 1) * perPage;
+                const pagePhotos = photos.slice(start, start + perPage);
+                const grid = document.getElementById('albumPhotosGrid');
+                if (!grid) return;
+                grid.innerHTML = pagePhotos.map(p =>
+                    `<div class="album-photo-item"><a href="${escapeHtml(p.url)}" target="_blank"><img src="${escapeHtml(p.thumbnail || p.url)}" onerror="this.style.opacity='0.5'" loading="lazy"></a></div>`
+                ).join('');
+                const total = photos.length;
+                const pagDiv = document.getElementById('albumPagination');
+                if (!pagDiv) return;
                 if (total <= perPage) { pagDiv.innerHTML = ''; return; }
-                const pages = Math.ceil(total / perPage); let html = '';
+                const pages = Math.ceil(total / perPage);
+                let html = '';
                 for (let i = 1; i <= pages; i++) html += `<button class="page-btn ${i === currentAlbumPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
                 pagDiv.innerHTML = html;
                 document.querySelectorAll('#albumPagination .page-btn').forEach(btn => btn.addEventListener('click', () => { currentAlbumPage = parseInt(btn.dataset.page); renderAlbumPhotos(); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
             }
-            function hideSingleAlbum() { document.getElementById('mainContent').classList.remove('hide'); document.getElementById('singleAlbumView').style.display = 'none'; document.getElementById('albums').scrollIntoView({ behavior: 'smooth' }); activeUnsubscribers = activeUnsubscribers.filter(unsub => { if (unsub._type === 'album-photos') { try { unsub(); } catch (e) { } return false; } return true; }); }
 
-            function renderAdminAlbums() {
-                const container = document.getElementById('adminAlbumsList'); if (!container) return;
-                container.innerHTML = cachedAlbums.map(a => `<div class="admin-item" data-id="${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong> ${a.desc ? `(${escapeHtml(a.desc)})` : ''} | 照片: ${a.photoCount || 0} 張</div><div><button class="edit-album-btn" data-id="${escapeHtml(a.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">編輯</button> <button class="del-album-btn" data-id="${escapeHtml(a.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div></div>`).join('');
-            }
-            function renderAdminAlbumSelect() {
-                const select = document.getElementById('albumSelectForPhotos'); if (!select) return;
-                select.innerHTML = cachedAlbums.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
-                if (cachedAlbums.length) { select.value = cachedAlbums[0].id; renderPhotosForAlbumAdmin(cachedAlbums[0].id); }
-                select.onchange = () => renderPhotosForAlbumAdmin(select.value);
-            }
-            function renderPhotosForAlbumAdmin(albumId) {
-                if (!db || !fns) return;
-                activeUnsubscribers = activeUnsubscribers.filter(unsub => { if (unsub._type === 'admin-photos') { try { unsub(); } catch (e) { } return false; } return true; });
-                const refs = getFirestoreRefs(); if (!refs) return;
-                const unsub = fns.onSnapshot(refs.photosCol(albumId), (snapshot) => {
-                    const photos = snapshot.docs.map(d => ({ id: d.id, ...d.data(), albumId })).sort((a, b) => (a.order || 0) - (b.order || 0));
-                    const container = document.getElementById('photoManagerGrid'); if (!container) return;
-                    container.innerHTML = photos.map(p => `<div class="photo-card" data-id="${escapeHtml(p.id)}"><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><img src="${escapeHtml(p.thumbnail || p.url)}" onerror="this.style.opacity='0.5'" loading="lazy"><button class="del-photo-btn" data-id="${escapeHtml(p.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">🗑️ 刪除</button></div>`).join('');
-                    if (sortablePhotos) sortablePhotos.destroy();
-                    sortablePhotos = new Sortable(container, {
-                        handle: '.drag-handle', animation: 150, onEnd: async () => {
-                            const cards = document.querySelectorAll('#photoManagerGrid .photo-card');
-                            const batch = fns.writeBatch(db);
-                            cards.forEach((card, index) => { const pid = card.dataset.id; batch.update(fns.doc(db, 'albums', albumId, 'photos', pid), { order: index }); });
-                            try { await batch.commit(); showSyncStatus('✅ 排序已同步至雲端', 2000); } catch (err) { alert('排序更新失敗: ' + err.message); }
-                        }
-                    });
+            function hideSingleAlbum() {
+                document.getElementById('mainContent').classList.remove('hide');
+                document.getElementById('singleAlbumView').style.display = 'none';
+                document.getElementById('albums').scrollIntoView({ behavior: 'smooth' });
+                activeUnsubscribers = activeUnsubscribers.filter(unsub => {
+                    if (unsub._type === 'album-photos') { try { unsub(); } catch (e) { } return false; }
+                    return true;
                 });
-                unsub._type = 'admin-photos'; activeUnsubscribers.push(unsub);
             }
 
-            function renderFrontMessages() { const container = document.getElementById('messageList'); if (!container) return; container.innerHTML = cachedMessages.map(m => `<div class="single-message"><div><span class="msg-name">${escapeHtml(m.name)}</span><span class="msg-date">${escapeHtml(m.date)}</span></div><div class="msg-content">${escapeHtml(m.content)}</div></div>`).join(''); }
-            function renderAdminMessages() { const container = document.getElementById('adminMessageList'); if (!container) return; container.innerHTML = cachedMessages.map(m => `<div class="admin-item"><div><strong>${escapeHtml(m.name)}</strong><br>${escapeHtml(m.date)}<p>${escapeHtml(m.content)}</p></div><button class="del-msg-btn" data-id="${escapeHtml(m.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div>`).join(''); }
-            function renderAdminRegistrations() { const container = document.getElementById('registrationList'); if (!container) return; container.innerHTML = cachedRegistrations.map(r => `<div class="admin-item"><div><strong>${escapeHtml(r.name)}</strong> (${escapeHtml(r.lamp)})<br>電話: ${escapeHtml(r.phone || '未填')}<br>信箱: ${escapeHtml(r.email || '未填')}<br>備註: ${escapeHtml(r.remark || '無')}<br><small>${escapeHtml(r.time)}</small></div><button class="del-reg-btn" data-id="${escapeHtml(r.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div>`).join(''); }
+            function renderFrontMessages() {
+                const container = document.getElementById('messageList');
+                if (!container) return;
+                container.innerHTML = cachedMessages.map(m =>
+                    `<div class="single-message"><div><span class="msg-name">${escapeHtml(m.name)}</span><span class="msg-date">${escapeHtml(m.date)}</span></div><div class="msg-content">${escapeHtml(m.content)}</div></div>`
+                ).join('');
+            }
 
             function renderLampServiceFront() {
-                const config = cachedLampConfig; const noticeDiv = document.getElementById('lampServiceNotice'), wrapper = document.getElementById('lampServiceFormWrapper');
+                const config = cachedLampConfig;
+                const noticeDiv = document.getElementById('lampServiceNotice'),
+                    wrapper = document.getElementById('lampServiceFormWrapper');
                 if (!noticeDiv || !wrapper) return;
                 if (config.enabled) {
                     noticeDiv.style.display = 'none';
-                    wrapper.innerHTML = `<div class="service-cards"><div class="service-card"><i class="fas fa-star-of-life"></i><h4>太歲燈</h4><p>安奉太歲，流年順遂</p><button class="btn-service" data-service="太歲燈">點亮太歲燈</button></div><div class="service-card"><i class="fas fa-lightbulb"></i><h4>光明燈</h4><p>元辰光彩，智慧增長</p><button class="btn-service" data-service="光明燈">點亮光明燈</button></div><div class="service-card"><i class="fas fa-graduation-cap"></i><h4>文昌燈</h4><p>學業精進，考運亨通</p><button class="btn-service" data-service="文昌燈">點亮文昌燈</button></div><div class="service-card"><i class="fas fa-coins"></i><h4>發財燈</h4><p>財源廣進，事業興旺</p><button class="btn-service" data-service="發財燈">點亮發財燈</button></div></div><div class="form-box"><h3><i class="fas fa-pen-fancy"></i> 線上點燈登記</h3><form id="prayForm"><div class="form-group"><input type="text" id="name" placeholder="信眾姓名 *" required></div><div class="form-group"><input type="tel" id="phone" placeholder="聯絡電話"></div><div class="form-group"><input type="email" id="email" placeholder="電子信箱 *" required></div><div class="form-group"><select id="serviceType" required><option value="" disabled selected>請選擇燈種</option><option>太歲燈</option><option>光明燈</option><option>文昌燈</option><option>發財燈</option></select></div><div class="form-group"><textarea rows="3" id="message" placeholder="備註：農曆生日、祈願內容"></textarea></div><button type="submit" class="submit-btn"><i class="fas fa-pray"></i> 送出點燈登記</button></form><p style="font-size:0.75rem; margin-top:12px; text-align:center;">※ 提交後專人聯繫，感恩護持。</p></div>`;
+                    wrapper.innerHTML = `
+                        <div class="service-cards">
+                            <div class="service-card"><i class="fas fa-star-of-life"></i><h4>太歲燈</h4><p>安奉太歲，流年順遂</p><button class="btn-service" data-service="太歲燈">點亮太歲燈</button></div>
+                            <div class="service-card"><i class="fas fa-lightbulb"></i><h4>光明燈</h4><p>元辰光彩，智慧增長</p><button class="btn-service" data-service="光明燈">點亮光明燈</button></div>
+                            <div class="service-card"><i class="fas fa-graduation-cap"></i><h4>文昌燈</h4><p>學業精進，考運亨通</p><button class="btn-service" data-service="文昌燈">點亮文昌燈</button></div>
+                            <div class="service-card"><i class="fas fa-coins"></i><h4>發財燈</h4><p>財源廣進，事業興旺</p><button class="btn-service" data-service="發財燈">點亮發財燈</button></div>
+                        </div>
+                        <div class="form-box">
+                            <h3><i class="fas fa-pen-fancy"></i> 線上點燈登記</h3>
+                            <form id="prayForm">
+                                <div class="form-group"><input type="text" id="name" placeholder="信眾姓名 *" required></div>
+                                <div class="form-group"><input type="tel" id="phone" placeholder="聯絡電話"></div>
+                                <div class="form-group"><input type="email" id="email" placeholder="電子信箱 *" required></div>
+                                <div class="form-group"><select id="serviceType" required><option value="" disabled selected>請選擇燈種</option><option>太歲燈</option><option>光明燈</option><option>文昌燈</option><option>發財燈</option></select></div>
+                                <div class="form-group"><textarea rows="3" id="message" placeholder="備註：農曆生日、祈願內容"></textarea></div>
+                                <button type="submit" class="submit-btn"><i class="fas fa-pray"></i> 送出點燈登記</button>
+                            </form>
+                            <p style="font-size:0.75rem; margin-top:12px; text-align:center;">※ 提交後專人聯繫，感恩護持。</p>
+                        </div>
+                    `;
                     document.getElementById('prayForm')?.addEventListener('submit', async function (e) {
                         e.preventDefault();
-                        const name = document.getElementById('name').value.trim(), email = document.getElementById('email').value.trim(), lamp = document.getElementById('serviceType').value;
+                        const name = document.getElementById('name').value.trim(),
+                            email = document.getElementById('email').value.trim(),
+                            lamp = document.getElementById('serviceType').value;
                         if (!name || !email || !lamp) { alert('請填寫完整資料'); return; }
                         if (!db || !fns) { alert('雲端資料庫尚未連線'); return; }
-                        const refs = getFirestoreRefs(); if (!refs) return;
+                        const refs = getFirestoreRefs();
+                        if (!refs) return;
                         const newReg = { name, phone: document.getElementById('phone').value.trim(), email, lamp, remark: document.getElementById('message').value.trim(), time: new Date().toLocaleString('zh-TW') };
-                        try { await fns.addDoc(refs.registrationsCol, newReg); alert(`🙏 感謝 ${name} 登記 ${lamp}，專人將盡快與您聯繫！`); document.getElementById('prayForm').reset(); showSyncStatus('✅ 點燈登記已同步至雲端', 2000); } catch (err) { alert('登記失敗: ' + err.message); }
+                        try {
+                            await fns.addDoc(refs.registrationsCol, newReg);
+                            alert(`🙏 感謝 ${name} 登記 ${lamp}，專人將盡快與您聯繫！`);
+                            document.getElementById('prayForm').reset();
+                            showSyncStatus('✅ 點燈登記已同步至雲端', 2000);
+                        } catch (err) { alert('登記失敗: ' + err.message); }
                     });
-                    document.querySelectorAll('.btn-service').forEach(btn => btn.addEventListener('click', (e) => { const svc = e.currentTarget.dataset.service; const sel = document.getElementById('serviceType'); if (sel) { for (let i = 0; i < sel.options.length; i++) if (sel.options[i].value === svc) sel.selectedIndex = i; document.getElementById('services').scrollIntoView({ behavior: 'smooth' }); } }));
+                    document.querySelectorAll('.btn-service').forEach(btn => btn.addEventListener('click', (e) => {
+                        const svc = e.currentTarget.dataset.service;
+                        const sel = document.getElementById('serviceType');
+                        if (sel) { for (let i = 0; i < sel.options.length; i++) if (sel.options[i].value === svc) sel.selectedIndex = i; document.getElementById('services').scrollIntoView({ behavior: 'smooth' }); }
+                    }));
                 } else {
-                    noticeDiv.style.display = 'block'; noticeDiv.innerHTML = `<p><strong>${escapeHtml(config.noticeTitle)}</strong></p><p>${escapeHtml(config.noticeMessage)}</p>`;
+                    noticeDiv.style.display = 'block';
+                    noticeDiv.innerHTML = `<p><strong>${escapeHtml(config.noticeTitle)}</strong></p><p>${escapeHtml(config.noticeMessage)}</p>`;
                     wrapper.innerHTML = `<div style="width:100%; text-align:center; padding:40px; background:#fff4e8; border-radius:40px;"><i class="fas fa-info-circle" style="font-size:2rem; color:#b87c4f;"></i><p style="margin-top:15px;">點燈服務目前暫停受理，請留意開放時間。</p></div>`;
                 }
             }
 
+            // ---------- 後台管理渲染函數 ----------
+            function renderAdminDeities() {
+                const container = document.getElementById('deityManagerGrid');
+                if (!container) return;
+                container.innerHTML = cachedDeities.map(d =>
+                    `<div class="deity-admin-card" data-id="${escapeHtml(d.id)}">
+                        <input class="deity-name" value="${escapeHtml(d.name)}" style="font-family:inherit;">
+                        <textarea class="deity-short-desc" rows="2" style="font-family:inherit;">${escapeHtml(d.shortDesc)}</textarea>
+                        <textarea class="deity-detail-desc" rows="4" style="font-family:inherit;">${escapeHtml(d.detailDesc || '')}</textarea>
+                        <input class="deity-sub" value="${escapeHtml(d.sub)}" style="font-family:inherit;">
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input class="deity-bg-url" placeholder="圖片網址或上傳後自動填入" value="${escapeHtml(d.bgImage || '')}" style="flex:1; min-width:150px; font-family:inherit;">
+                            <button class="upload-bg-btn" data-id="${escapeHtml(d.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">📤 上傳</button>
+                            <button class="remove-bg-btn" data-id="${escapeHtml(d.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">移除</button>
+                        </div>
+                        <div class="bg-preview">${d.bgImage ? `<img src="${escapeHtml(d.bgImage)}" style="max-width:120px; border-radius:12px;">` : '尚無圖片'}</div>
+                        <div>
+                            <button class="save-deity-btn" data-id="${escapeHtml(d.id)}" style="background:#e2a526; color:#2c1c0c; border:none; padding:8px 18px; border-radius:20px; cursor:pointer; font-weight:bold; font-family:inherit;">儲存修改</button>
+                            <button class="delete-deity-btn" data-id="${escapeHtml(d.id)}" style="background:#a13e2a; color:white; border:none; padding:8px 18px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除神明</button>
+                        </div>
+                    </div>`
+                ).join('');
+            }
+
+            function renderAdminNewsList() {
+                const container = document.getElementById('adminNewsList');
+                if (!container) return;
+                container.innerHTML = cachedNews.map(item =>
+                    `<div class="admin-item"><div><strong>${escapeHtml(item.title)}</strong><br>${escapeHtml(item.date)}<p>${escapeHtml(item.summary)}</p></div><div><button class="edit-news-btn" data-id="${escapeHtml(item.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">編輯</button> <button class="delete-news-btn" data-id="${escapeHtml(item.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div></div>`
+                ).join('');
+            }
+
+            function renderAdminAlbums() {
+                const container = document.getElementById('adminAlbumsList');
+                if (!container) return;
+                container.innerHTML = cachedAlbums.map(a =>
+                    `<div class="admin-item" data-id="${escapeHtml(a.id)}"><div><strong>${escapeHtml(a.name)}</strong> ${a.desc ? `(${escapeHtml(a.desc)})` : ''} | 照片: ${a.photoCount || 0} 張</div><div><button class="edit-album-btn" data-id="${escapeHtml(a.id)}" style="background:#b87c4f; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">編輯</button> <button class="del-album-btn" data-id="${escapeHtml(a.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div></div>`
+                ).join('');
+            }
+
+            function renderAdminAlbumSelect() {
+                const select = document.getElementById('albumSelectForPhotos');
+                if (!select) return;
+                select.innerHTML = cachedAlbums.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
+                if (cachedAlbums.length) {
+                    select.value = cachedAlbums[0].id;
+                    renderPhotosForAlbumAdmin(cachedAlbums[0].id);
+                }
+                select.onchange = () => renderPhotosForAlbumAdmin(select.value);
+            }
+
+            function renderPhotosForAlbumAdmin(albumId) {
+                if (!db || !fns) return;
+                activeUnsubscribers = activeUnsubscribers.filter(unsub => { if (unsub._type === 'admin-photos') { try { unsub(); } catch (e) { } return false; } return true; });
+                const refs = getFirestoreRefs();
+                if (!refs) return;
+                const unsub = fns.onSnapshot(refs.photosCol(albumId), (snapshot) => {
+                    const photos = snapshot.docs.map(d => ({ id: d.id, ...d.data(), albumId })).sort((a, b) => (a.order || 0) - (b.order || 0));
+                    const container = document.getElementById('photoManagerGrid');
+                    if (!container) return;
+                    container.innerHTML = photos.map(p =>
+                        `<div class="photo-card" data-id="${escapeHtml(p.id)}"><div class="drag-handle"><i class="fas fa-grip-vertical"></i></div><img src="${escapeHtml(p.thumbnail || p.url)}" onerror="this.style.opacity='0.5'" loading="lazy"><button class="del-photo-btn" data-id="${escapeHtml(p.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">🗑️ 刪除</button></div>`
+                    ).join('');
+                    if (sortablePhotos) sortablePhotos.destroy();
+                    sortablePhotos = new Sortable(container, {
+                        handle: '.drag-handle',
+                        animation: 150,
+                        onEnd: async () => {
+                            const cards = document.querySelectorAll('#photoManagerGrid .photo-card');
+                            const batch = fns.writeBatch(db);
+                            cards.forEach((card, index) => {
+                                const pid = card.dataset.id;
+                                batch.update(fns.doc(db, 'albums', albumId, 'photos', pid), { order: index });
+                            });
+                            try {
+                                await batch.commit();
+                                showSyncStatus('✅ 排序已同步至雲端', 2000);
+                            } catch (err) { alert('排序更新失敗: ' + err.message); }
+                        }
+                    });
+                });
+                unsub._type = 'admin-photos';
+                activeUnsubscribers.push(unsub);
+            }
+
+            function renderAdminMessages() {
+                const container = document.getElementById('adminMessageList');
+                if (!container) return;
+                container.innerHTML = cachedMessages.map(m =>
+                    `<div class="admin-item"><div><strong>${escapeHtml(m.name)}</strong><br>${escapeHtml(m.date)}<p>${escapeHtml(m.content)}</p></div><button class="del-msg-btn" data-id="${escapeHtml(m.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div>`
+                ).join('');
+            }
+
+            function renderAdminRegistrations() {
+                const container = document.getElementById('registrationList');
+                if (!container) return;
+                container.innerHTML = cachedRegistrations.map(r =>
+                    `<div class="admin-item"><div><strong>${escapeHtml(r.name)}</strong> (${escapeHtml(r.lamp)})<br>電話: ${escapeHtml(r.phone || '未填')}<br>信箱: ${escapeHtml(r.email || '未填')}<br>備註: ${escapeHtml(r.remark || '無')}<br><small>${escapeHtml(r.time)}</small></div><button class="del-reg-btn" data-id="${escapeHtml(r.id)}" style="background:#a13e2a; color:white; border:none; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:inherit;">刪除</button></div>`
+                ).join('');
+            }
+
             function renderAdminLampConfig() {
-                const container = document.getElementById('adminLampConfigArea'); if (!container) return; const config = cachedLampConfig;
-                container.innerHTML = `<h3>🪔 點燈服務開放設定</h3><div class="upload-area"><label style="font-size:1.1rem; cursor:pointer;"><input type="checkbox" id="lampEnabledCheckbox" ${config.enabled ? 'checked' : ''}> 啟用點燈登記</label><div style="margin-top:15px;"><label>關閉時的公告標題</label><input type="text" id="lampNoticeTitle" value="${escapeHtml(config.noticeTitle)}" style="width:100%;padding:10px;border-radius:40px;font-family:inherit;margin-bottom:10px;"><label>關閉時的公告內容</label><textarea id="lampNoticeMessage" rows="3" style="width:100%;padding:10px;border-radius:20px;font-family:inherit;">${escapeHtml(config.noticeMessage)}</textarea></div><button id="saveLampConfigBtn" class="btn-gold" style="margin-top:15px;">儲存設定</button></div>`;
+                const container = document.getElementById('adminLampConfigArea');
+                if (!container) return;
+                const config = cachedLampConfig;
+                container.innerHTML = `
+                    <h3>🪔 點燈服務開放設定</h3>
+                    <div class="upload-area">
+                        <label style="font-size:1.1rem; cursor:pointer;"><input type="checkbox" id="lampEnabledCheckbox" ${config.enabled ? 'checked' : ''}> 啟用點燈登記</label>
+                        <div style="margin-top:15px;">
+                            <label>關閉時的公告標題</label>
+                            <input type="text" id="lampNoticeTitle" value="${escapeHtml(config.noticeTitle)}" style="width:100%;padding:10px;border-radius:40px;font-family:inherit;margin-bottom:10px;">
+                            <label>關閉時的公告內容</label>
+                            <textarea id="lampNoticeMessage" rows="3" style="width:100%;padding:10px;border-radius:20px;font-family:inherit;">${escapeHtml(config.noticeMessage)}</textarea>
+                        </div>
+                        <button id="saveLampConfigBtn" class="btn-gold" style="margin-top:15px;">儲存設定</button>
+                    </div>
+                `;
                 document.getElementById('saveLampConfigBtn')?.addEventListener('click', async () => {
                     if (!db || !fns) { alert('雲端資料庫尚未連線'); return; }
-                    const refs = getFirestoreRefs(); if (!refs) return;
+                    const refs = getFirestoreRefs();
+                    if (!refs) return;
                     const enabled = document.getElementById('lampEnabledCheckbox').checked;
                     const noticeTitle = document.getElementById('lampNoticeTitle').value.trim();
                     const noticeMessage = document.getElementById('lampNoticeMessage').value.trim();
-                    try { await fns.setDoc(refs.configDoc('lampService'), { enabled, noticeTitle, noticeMessage }); showSyncStatus('✅ 點燈設定已同步至雲端', 2000); } catch (err) { alert('設定儲存失敗: ' + err.message); }
-                });
-            }
-
-            function setupPasswordChange() {
-                const changeBtn = document.getElementById('changePasswordBtn'); const msgEl = document.getElementById('passwordMsg'); if (!changeBtn) return;
-                changeBtn.addEventListener('click', async () => {
-                    const oldPwd = document.getElementById('oldPassword').value;
-                    const newPwd = document.getElementById('newPassword').value;
-                    const confirmPwd = document.getElementById('confirmPassword').value;
-                    if (!oldPwd || !newPwd || !confirmPwd) { msgEl.innerHTML = '❌ 請填寫所有欄位'; msgEl.style.color = '#a13e2a'; return; }
-                    if (newPwd !== confirmPwd) { msgEl.innerHTML = '❌ 新密碼與確認密碼不一致'; msgEl.style.color = '#a13e2a'; return; }
-                    if (newPwd.length < 6) { msgEl.innerHTML = '❌ 新密碼長度至少需要6個字元'; msgEl.style.color = '#a13e2a'; return; }
-                    const isOldValid = await verifyPassword(oldPwd);
-                    if (!isOldValid) { msgEl.innerHTML = '❌ 舊密碼錯誤'; msgEl.style.color = '#a13e2a'; return; }
                     try {
-                        const newHash = await hashPassword(newPwd);
-                        const adminRef = fns.doc(db, 'config', 'admin');
-                        await fns.setDoc(adminRef, { passwordHash: newHash, isInitialized: true, lastChanged: new Date().toISOString() });
-                        msgEl.innerHTML = '✅ 密碼修改成功！'; msgEl.style.color = '#2c6e2c';
-                        document.getElementById('oldPassword').value = ''; document.getElementById('newPassword').value = ''; document.getElementById('confirmPassword').value = '';
-                        showSyncStatus('🔑 後台密碼已更新', 2000);
-                    } catch (err) { msgEl.innerHTML = '❌ 修改失敗：' + err.message; msgEl.style.color = '#a13e2a'; }
+                        await fns.setDoc(refs.configDoc('lampService'), { enabled, noticeTitle, noticeMessage });
+                        showSyncStatus('✅ 點燈設定已同步至雲端', 2000);
+                    } catch (err) { alert('設定儲存失敗: ' + err.message); }
                 });
             }
 
-            function showAdminLogin() {
-                const loginDiv = document.getElementById('adminLoginArea'), contentDiv = document.getElementById('adminContentArea');
-                if (!loginDiv || !contentDiv) return;
-                if (adminLogged) {
-                    loginDiv.style.display = 'none'; contentDiv.style.display = 'block';
-                    renderAdminAlbums(); renderAdminAlbumSelect(); renderAdminNewsList(); renderAdminMessages();
-                    renderAdminDeities(); renderAdminRegistrations(); renderAdminLampConfig(); initAdminTabs();
-                    document.getElementById('logoutAdminBtn').onclick = logoutAdmin;
-                } else {
-                    loginDiv.style.display = 'block'; contentDiv.style.display = 'none';
-                    loginDiv.innerHTML = `<div class="login-prompt"><i class="fas fa-lock"></i><h3>管理者驗證</h3><p>請輸入後台管理密碼</p><input type="password" id="adminPwd" placeholder="請輸入密碼" style="font-family:inherit;"><br><button id="loginSubmitBtn" class="btn-gold" style="margin-top:10px;">登入後台</button><p id="loginMsg" style="color:#a13e2a; margin-top:10px;"></p></div>`;
-                    document.getElementById('loginSubmitBtn')?.addEventListener('click', async () => {
-                        const pwd = document.getElementById('adminPwd').value;
-                        const isValid = await verifyPassword(pwd);
-                        if (isValid) { adminLogged = true; showAdminLogin(); showSyncStatus('✅ 已登入管理後台', 2000); }
-                        else { document.getElementById('loginMsg').innerText = '❌ 密碼錯誤，請重新輸入'; }
-                    });
-                }
-            }
-            function logoutAdmin() { adminLogged = false; showAdminLogin(); alert('已安全登出管理後台'); }
-            function initAdminTabs() {
-                const btns = document.querySelectorAll('.admin-tab button');
-                btns.forEach(btn => btn.addEventListener('click', function (e) {
-                    const tabId = e.currentTarget.dataset.tab;
-                    document.querySelectorAll('.admin-tab-content').forEach(t => t.classList.remove('active'));
-                    const targetTab = document.getElementById(tabId); if (targetTab) targetTab.classList.add('active');
-                    btns.forEach(b => b.classList.remove('active')); e.currentTarget.classList.add('active');
-                }));
-                if (btns.length > 0) btns[0].click();
-                setupPasswordChange();
-            }
-
+            // ---------- 匯出備份 ----------
             async function exportWebsite() {
                 if (!db || !fns) { alert('雲端資料庫尚未連線，無法匯出'); return; }
                 try {
-                    const refs = getFirestoreRefs(); if (!refs) return;
+                    const refs = getFirestoreRefs();
+                    if (!refs) return;
                     const deitiesSnap = await fns.getDocs(refs.deitiesCol);
                     const newsSnap = await fns.getDocs(refs.newsCol);
                     const albumsSnap = await fns.getDocs(refs.albumsCol);
@@ -1965,19 +2319,27 @@
                     const deities = deitiesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                     const news = newsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                     const albums = albumsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    let heroBg = ''; let lampConfig = cachedLampConfig;
+                    let heroBg = '',
+                        lampConfig = cachedLampConfig;
                     configSnap.forEach(d => { if (d.id === 'hero') heroBg = d.data().url || ''; if (d.id === 'lampService') lampConfig = d.data(); });
                     const initScript = `localStorage.setItem('deities_backup', '${JSON.stringify(deities).replace(/'/g, "\\'")}');localStorage.setItem('news_backup', '${JSON.stringify(news).replace(/'/g, "\\'")}');localStorage.setItem('albums_backup', '${JSON.stringify(albums).replace(/'/g, "\\'")}');localStorage.setItem('hero_backup', '${heroBg.replace(/'/g, "\\'")}');localStorage.setItem('lamp_backup', '${JSON.stringify(lampConfig).replace(/'/g, "\\'")}');`;
                     const htmlContent = document.documentElement.outerHTML;
                     const newHtml = htmlContent.replace('</head>', `<script>${initScript}<\/script></head>`);
-                    const blob = new Blob([newHtml], { type: 'text/html' }); const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = 'baoangong_backup_' + new Date().toISOString().slice(0, 10) + '.html';
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    const blob = new Blob([newHtml], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'baoangong_backup_' + new Date().toISOString().slice(0, 10) + '.html';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
                     alert('✅ 備份匯出成功！此為靜態版本，不包含 Firebase 即時同步功能。');
                     showSyncStatus('📦 備份已匯出', 2000);
                 } catch (err) { alert('匯出失敗: ' + err.message); }
             }
 
+            // ---------- 留言提交 ----------
             async function handleSubmitMessage() {
                 const name = document.getElementById('msgName')?.value.trim();
                 const content = document.getElementById('msgText')?.value.trim();
@@ -1986,104 +2348,145 @@
                 try {
                     const refs = getFirestoreRefs();
                     await fns.addDoc(refs.messagesCol, { name, content, date: new Date().toLocaleDateString('zh-TW') });
-                    document.getElementById('msgName').value = ''; document.getElementById('msgText').value = '';
+                    document.getElementById('msgName').value = '';
+                    document.getElementById('msgText').value = '';
                     alert('🙏 感謝您的祈福留言，已同步至雲端！');
                     showSyncStatus('✅ 留言已送出', 2000);
                 } catch (err) { alert('留言失敗: ' + err.message); }
             }
 
+            // ---------- 初始化 Firebase（含超時） ----------
+            async function initializeFirebaseWithTimeout(timeout = 15000) {
+                return new Promise((resolve) => {
+                    if (window.__FIREBASE_READY__) { resolve(true); return; }
+                    const timer = setTimeout(() => {
+                        console.warn('⚠️ Firebase 初始化逾時');
+                        resolve(false);
+                    }, timeout);
+                    window.addEventListener('firebase-ready', () => {
+                        clearTimeout(timer);
+                        resolve(true);
+                    }, { once: true });
+                });
+            }
+
             async function initializeApp() {
                 try {
-                    if (!window.__FIREBASE_READY__) { await new Promise(resolve => window.addEventListener('firebase-ready', resolve, { once: true })); }
+                    const ready = await initializeFirebaseWithTimeout(15000);
+                    if (!ready) {
+                        showSyncStatus('⚠️ 雲端連線逾時，請檢查網路', 0);
+                        renderStaticFallback();
+                        return;
+                    }
                     db = window.__FIREBASE_DB__;
                     storage = window.__FIREBASE_STORAGE__;
                     fns = window.__FIREBASE_FNS__;
                     if (!db || !fns) throw new Error('Firebase 服務未正確載入');
-
-                    console.log('開始初始化 Firestore...');
+                    console.log('✅ Firebase 已連線');
                     await initFirestoreDefaults();
-                    console.log('Firestore 檢查完成，設定監聽器...');
                     setupAllListeners();
-
-                    if (cachedDeities.length === 0) cachedDeities = [...defaultDeities];
-                    if (cachedNews.length === 0) cachedNews = [...defaultNews];
-                    if (cachedAlbums.length === 0) cachedAlbums = [...defaultAlbums];
-                    if (cachedMessages.length === 0) cachedMessages = [...defaultMessages];
-
-                    renderFrontDeities(); renderFrontNews(); renderFrontMessages(); renderFrontAlbumsPreview();
-                    renderLampServiceFront(); applyHeroBackground();
-                    console.log('✅ 網站初始化完成');
+                    renderStaticFallback();
                     showSyncStatus('☁️ 雲端已連線', 3000);
                 } catch (error) {
                     console.error('初始化失敗:', error);
                     showSyncStatus('⚠️ 雲端連線失敗', 0);
-                    // 仍然渲染預設資料，讓頁面至少可用
-                    if (cachedDeities.length === 0) cachedDeities = [...defaultDeities];
-                    if (cachedNews.length === 0) cachedNews = [...defaultNews];
-                    if (cachedAlbums.length === 0) cachedAlbums = [...defaultAlbums];
-                    if (cachedMessages.length === 0) cachedMessages = [...defaultMessages];
-                    renderFrontDeities(); renderFrontNews(); renderFrontMessages(); renderFrontAlbumsPreview();
-                    renderLampServiceFront(); applyHeroBackground();
+                    renderStaticFallback();
                 }
             }
 
+            function renderStaticFallback() {
+                // 確保所有前端區塊都有內容（即使離線）
+                if (cachedDeities.length === 0) cachedDeities = [...defaultDeities];
+                if (cachedNews.length === 0) cachedNews = [...defaultNews];
+                if (cachedAlbums.length === 0) cachedAlbums = [...defaultAlbums];
+                if (cachedMessages.length === 0) cachedMessages = [...defaultMessages];
+                renderFrontDeities();
+                renderFrontNews();
+                renderFrontMessages();
+                renderFrontAlbumsPreview();
+                renderLampServiceFront();
+                applyHeroBackground();
+            }
+
+            // ---------- 暴露全域函數 ----------
             window.showAdminLogin = showAdminLogin;
             window.hideDeityDetail = hideDeityDetail;
             window.hideNewsDetail = hideNewsDetail;
             window.hideSingleAlbum = hideSingleAlbum;
-            window.renderFrontDeities = renderFrontDeities;
-            window.renderFrontNews = renderFrontNews;
-            window.renderFrontAlbumsPreview = renderFrontAlbumsPreview;
             window.exportWebsite = exportWebsite;
             window.handleSubmitMessage = handleSubmitMessage;
             window._initApp = initializeApp;
-        })();
 
-        document.addEventListener('DOMContentLoaded', async function () {
-            try { if (window._initApp) await window._initApp(); } catch (e) { console.error('初始化失敗，部分功能可能無法使用：', e); const statusEl = document.getElementById('syncStatus'); if (statusEl) { statusEl.textContent = '⚠️ 雲端連線失敗'; statusEl.style.opacity = '1'; } }
+            // ---------- 啟動 ----------
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
+            } else {
+                initializeApp();
+            }
 
-            document.querySelectorAll('.nav-links a').forEach(a => a.addEventListener('click', function (e) {
-                e.preventDefault();
-                const id = this.getAttribute('href').substring(1);
-                if (document.getElementById('deityDetailView')?.style.display === 'block' && typeof window.hideDeityDetail === 'function') window.hideDeityDetail();
-                if (document.getElementById('newsDetailView')?.style.display === 'block' && typeof window.hideNewsDetail === 'function') window.hideNewsDetail();
-                if (document.getElementById('singleAlbumView')?.style.display === 'block' && typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum();
-                const target = document.getElementById(id);
-                if (target) target.scrollIntoView({ behavior: 'smooth' });
-                else if (id === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
-                if (window.innerWidth <= 860) document.getElementById('navLinks')?.classList.remove('show');
-            }));
-            document.getElementById('logoHomeBtn')?.addEventListener('click', function (e) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); if (window.innerWidth <= 860) document.getElementById('navLinks')?.classList.remove('show'); });
-            const navToggle = document.getElementById('navToggle'), navLinks = document.getElementById('navLinks');
-            navToggle?.addEventListener('click', () => navLinks?.classList.toggle('show'));
-            document.addEventListener('click', (e) => { if (window.innerWidth <= 860 && navLinks?.classList.contains('show') && !navLinks.contains(e.target) && e.target !== navToggle && !navToggle?.contains(e.target)) { navLinks.classList.remove('show'); } });
-            document.getElementById('startBrowsingBtn')?.addEventListener('click', function (e) { e.preventDefault(); document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); });
-            document.getElementById('backToDeitiesBtn')?.addEventListener('click', () => { if (typeof window.hideDeityDetail === 'function') window.hideDeityDetail(); });
-            document.getElementById('bottomBackToDeitiesBtn')?.addEventListener('click', () => { if (typeof window.hideDeityDetail === 'function') window.hideDeityDetail(); });
-            document.getElementById('backToNewsBtn')?.addEventListener('click', () => { if (typeof window.hideNewsDetail === 'function') window.hideNewsDetail(); });
-            document.getElementById('bottomBackToNewsBtn')?.addEventListener('click', () => { if (typeof window.hideNewsDetail === 'function') window.hideNewsDetail(); });
-            document.getElementById('backToAlbumsBtn')?.addEventListener('click', () => { if (typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum(); });
-            document.getElementById('bottomBackToAlbumsBtn')?.addEventListener('click', () => { if (typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum(); });
-            const backBtn = document.getElementById('back2top');
-            window.addEventListener('scroll', () => { if (window.scrollY > 500) { backBtn.classList.remove('hidden'); } else { backBtn.classList.add('hidden'); } });
-            backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+            // ---------- 事件綁定（DOMContentLoaded 後執行） ----------
+            document.addEventListener('DOMContentLoaded', function () {
+                // 導航、按鈕等事件
+                document.querySelectorAll('.nav-links a').forEach(a => a.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const id = this.getAttribute('href').substring(1);
+                    if (document.getElementById('deityDetailView')?.style.display === 'block' && typeof window.hideDeityDetail === 'function') window.hideDeityDetail();
+                    if (document.getElementById('newsDetailView')?.style.display === 'block' && typeof window.hideNewsDetail === 'function') window.hideNewsDetail();
+                    if (document.getElementById('singleAlbumView')?.style.display === 'block' && typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum();
+                    const target = document.getElementById(id);
+                    if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    else if (id === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
+                    if (window.innerWidth <= 860) document.getElementById('navLinks')?.classList.remove('show');
+                }));
+                document.getElementById('logoHomeBtn')?.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' }); if (window.innerWidth <= 860) document.getElementById('navLinks')?.classList.remove('show');
+                });
+                const navToggle = document.getElementById('navToggle'),
+                    navLinks = document.getElementById('navLinks');
+                navToggle?.addEventListener('click', () => navLinks?.classList.toggle('show'));
+                document.addEventListener('click', (e) => { if (window.innerWidth <= 860 && navLinks?.classList.contains('show') && !navLinks.contains(e.target) && e.target !== navToggle && !navToggle?.contains(e.target)) { navLinks.classList.remove('show'); } });
+                document.getElementById('startBrowsingBtn')?.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+                });
+                document.getElementById('backToDeitiesBtn')?.addEventListener('click', () => { if (typeof window.hideDeityDetail === 'function') window.hideDeityDetail(); });
+                document.getElementById('bottomBackToDeitiesBtn')?.addEventListener('click', () => { if (typeof window.hideDeityDetail === 'function') window.hideDeityDetail(); });
+                document.getElementById('backToNewsBtn')?.addEventListener('click', () => { if (typeof window.hideNewsDetail === 'function') window.hideNewsDetail(); });
+                document.getElementById('bottomBackToNewsBtn')?.addEventListener('click', () => { if (typeof window.hideNewsDetail === 'function') window.hideNewsDetail(); });
+                document.getElementById('backToAlbumsBtn')?.addEventListener('click', () => { if (typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum(); });
+                document.getElementById('bottomBackToAlbumsBtn')?.addEventListener('click', () => { if (typeof window.hideSingleAlbum === 'function') window.hideSingleAlbum(); });
+                const backBtn = document.getElementById('back2top');
+                window.addEventListener('scroll', () => { if (window.scrollY > 500) { backBtn.classList.remove('hidden'); } else { backBtn.classList.add('hidden'); } });
+                backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-            const overlay = document.getElementById('adminOverlay');
-            document.getElementById('adminTriggerBtn')?.addEventListener('click', () => {
-                if (!overlay) return;
-                overlay.classList.add('show');
-                if (typeof window.showAdminLogin === 'function') window.showAdminLogin();
-                else { const loginArea = document.getElementById('adminLoginArea'); if (loginArea) loginArea.innerHTML = '<p style="color:red;">登入功能暫時無法使用，請檢查 Firebase 設定。</p>'; }
+                // 後台按鈕
+                const overlay = document.getElementById('adminOverlay');
+                document.getElementById('adminTriggerBtn')?.addEventListener('click', () => {
+                    if (!overlay) return;
+                    overlay.classList.add('show');
+                    if (typeof window.showAdminLogin === 'function') window.showAdminLogin();
+                });
+                document.getElementById('closeAdminBtn')?.addEventListener('click', () => overlay?.classList.remove('show'));
+                overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+
+                document.getElementById('submitMessageBtn')?.addEventListener('click', () => { if (typeof window.handleSubmitMessage === 'function') window.handleSubmitMessage(); });
+                document.getElementById('loadMoreDeitiesBtn')?.addEventListener('click', () => {
+                    window.deitiesExpanded = true;
+                    renderFrontDeities();
+                    document.getElementById('deities').scrollIntoView({ behavior: 'smooth' });
+                });
+                document.getElementById('loadMoreNewsBtn')?.addEventListener('click', () => {
+                    window.newsExpanded = true;
+                    renderFrontNews();
+                });
+                document.getElementById('loadMoreAlbumsBtn')?.addEventListener('click', () => {
+                    window.albumsExpanded = true;
+                    renderFrontAlbumsPreview();
+                });
+                document.getElementById('exportSiteBtn')?.addEventListener('click', () => { if (typeof window.exportWebsite === 'function') window.exportWebsite(); });
             });
-            document.getElementById('closeAdminBtn')?.addEventListener('click', () => overlay?.classList.remove('show'));
-            overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
-
-            document.getElementById('submitMessageBtn')?.addEventListener('click', () => { if (typeof window.handleSubmitMessage === 'function') window.handleSubmitMessage(); });
-            document.getElementById('loadMoreDeitiesBtn')?.addEventListener('click', () => { if (typeof window.renderFrontDeities === 'function') { window.deitiesExpanded = true; window.renderFrontDeities(); document.getElementById('deities').scrollIntoView({ behavior: 'smooth' }); } });
-            document.getElementById('loadMoreNewsBtn')?.addEventListener('click', () => { if (typeof window.renderFrontNews === 'function') { window.newsExpanded = true; window.renderFrontNews(); } });
-            document.getElementById('loadMoreAlbumsBtn')?.addEventListener('click', () => { if (typeof window.renderFrontAlbumsPreview === 'function') { window.albumsExpanded = true; window.renderFrontAlbumsPreview(); } });
-            document.getElementById('exportSiteBtn')?.addEventListener('click', () => { if (typeof window.exportWebsite === 'function') window.exportWebsite(); });
-        });
+        })();
     </script>
 </body>
 
