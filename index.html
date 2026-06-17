@@ -8,31 +8,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700;900&display=swap"
         rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
-    <!-- 載入 Firebase 函式庫（使用 <script> 標記） -->
+    <!-- ✅ 新增 Sortable CDN（必須） -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
     <script>
-        // 貼上您從 Firebase Console 複製的 firebaseConfig
+        // ✅ 修正 storageBucket
         const firebaseConfig = {
             apiKey: "AIzaSyDSkSawMy7SjLd-YoYk-trVn1SgXFJikVo",
             authDomain: "baoantemplesite.firebaseapp.com",
             projectId: "baoantemplesite",
-            storageBucket: "baoantemplesite.firebasestorage.app",
+            storageBucket: "baoantemplesite.appspot.com",
             messagingSenderId: "505010272441",
             appId: "1:505010272441:web:8012b125b621662b7d0368"
         };
 
-        // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
-
-        // 取得 Firestore 和 Storage 實例
         const db = firebase.firestore();
         const storage = firebase.storage();
 
-        // 暴露給全域變數（供其他腳本使用）
         window.__FIREBASE_DB__ = db;
         window.__FIREBASE_STORAGE__ = storage;
         window.__FIREBASE_FNS__ = {
@@ -51,7 +50,6 @@
             getDownloadURL: (ref) => ref.getDownloadURL()
         };
         window.__FIREBASE_READY__ = true;
-
         console.log('✅ Firebase 已初始化 (Compat)');
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
@@ -1662,7 +1660,6 @@
             const perPage = 12;
             let sortablePhotos = null;
 
-            // ---------- 資料快取 ----------
             let cachedDeities = [];
             let cachedNews = [];
             let cachedAlbums = [];
@@ -2480,17 +2477,18 @@
                 overlay?.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
 
                 document.getElementById('submitMessageBtn')?.addEventListener('click', () => { if (typeof window.handleSubmitMessage === 'function') window.handleSubmitMessage(); });
+                // ✅ 修正「顯示更多」按鈕：直接修改區域變數，而非 window 屬性
                 document.getElementById('loadMoreDeitiesBtn')?.addEventListener('click', () => {
-                    window.deitiesExpanded = true;
+                    deitiesExpanded = true;
                     renderFrontDeities();
                     document.getElementById('deities').scrollIntoView({ behavior: 'smooth' });
                 });
                 document.getElementById('loadMoreNewsBtn')?.addEventListener('click', () => {
-                    window.newsExpanded = true;
+                    newsExpanded = true;
                     renderFrontNews();
                 });
                 document.getElementById('loadMoreAlbumsBtn')?.addEventListener('click', () => {
-                    window.albumsExpanded = true;
+                    albumsExpanded = true;
                     renderFrontAlbumsPreview();
                 });
                 document.getElementById('exportSiteBtn')?.addEventListener('click', () => { if (typeof window.exportWebsite === 'function') window.exportWebsite(); });
