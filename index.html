@@ -8,32 +8,31 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700;900&display=swap"
         rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-    <!-- 移除原本的 importmap 與 module script -->
-    <!-- 改為載入 Firebase Compat 函式庫 -->
+    <!-- 載入 Firebase 函式庫（使用 <script> 標記） -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
     <script>
-        // Firebase 配置
+        // 貼上您從 Firebase Console 複製的 firebaseConfig
         const firebaseConfig = {
-            apiKey: "AIzaSyDQBtX1yb-Yid4OjFiaL3b6Jn3NWbpemKY",
-            authDomain: "baoantemple1.firebaseapp.com",
-            projectId: "baoantemple1",
-            storageBucket: "baoantemple1.firebasestorage.app",
-            messagingSenderId: "48604297963",
-            appId: "1:48604297963:web:fca258bb20da5a94285cae",
-            measurementId: "G-DLHZ6HTWH7"
+            apiKey: "AIzaSyDSkSawMy7SjLd-YoYk-trVn1SgXFJikVo",
+            authDomain: "baoantemplesite.firebaseapp.com",
+            projectId: "baoantemplesite",
+            storageBucket: "baoantemplesite.firebasestorage.app",
+            messagingSenderId: "505010272441",
+            appId: "1:505010272441:web:8012b125b621662b7d0368"
         };
 
         // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
+
+        // 取得 Firestore 和 Storage 實例
         const db = firebase.firestore();
         const storage = firebase.storage();
 
-        // 暴露給全域
+        // 暴露給全域變數（供其他腳本使用）
         window.__FIREBASE_DB__ = db;
         window.__FIREBASE_STORAGE__ = storage;
         window.__FIREBASE_FNS__ = {
@@ -52,10 +51,10 @@
             getDownloadURL: (ref) => ref.getDownloadURL()
         };
         window.__FIREBASE_READY__ = true;
+
         console.log('✅ Firebase 已初始化 (Compat)');
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
-
     <style>
         :root {
             scroll-behavior: smooth;
@@ -1739,48 +1738,52 @@
                 }
 
                 let lastError = null;
+                const adminRef = fns.doc(db, 'config', 'admin');
+
+                // 先嘗試讀取文件
                 for (let attempt = 1; attempt <= maxRetries; attempt++) {
                     try {
-                        // 嘗試讀取 admin 文件
-                        const adminRef = fns.doc(db, 'config', 'admin');
+                        console.log(`[驗證] 嘗試讀取 admin 文件 (第 ${attempt} 次)`);
                         const docSnap = await fns.getDoc(adminRef);
-                        const defaultHash = await hashPassword('admin8682246');
 
                         if (!docSnap.exists()) {
-                            // 首次使用，寫入預設密碼
+                            console.log('[驗證] admin 文件不存在，嘗試建立預設密碼');
+                            const defaultHash = await hashPassword('admin8682246');
                             await fns.setDoc(adminRef, {
                                 passwordHash: defaultHash,
                                 isInitialized: true,
                                 createdAt: new Date().toISOString()
                             });
+                            console.log('[驗證] 預設 admin 文件已建立');
+                            // 重新讀取以確認
+                            const newSnap = await fns.getDoc(adminRef);
+                            if (!newSnap.exists()) {
+                                throw new Error('建立 admin 文件後仍無法讀取，請檢查 Firestore 權限');
+                            }
+                            const storedHash = newSnap.data().passwordHash;
                             const inputHash = await hashPassword(inputPassword);
-                            return inputHash === defaultHash;
+                            console.log('[驗證] 比對結果:', storedHash === inputHash);
+                            return storedHash === inputHash;
                         }
 
                         const storedHash = docSnap.data().passwordHash;
                         const inputHash = await hashPassword(inputPassword);
+                        console.log('[驗證] 比對結果:', storedHash === inputHash);
                         return storedHash === inputHash;
-                    } catch (err) {
-                        console.warn(`驗證嘗試 ${attempt}/${maxRetries} 失敗:`, err.message);
-                        lastError = err;
 
-                        // 如果是離線錯誤，等待後重試
-                        if (err.message.includes('offline') || err.code === 'unavailable') {
-                            if (attempt < maxRetries) {
-                                const delay = 1000 * attempt; // 遞增等待
-                                console.log(`等待 ${delay}ms 後重試...`);
-                                await new Promise(resolve => setTimeout(resolve, delay));
-                                continue;
-                            }
+                    } catch (err) {
+                        console.warn(`[驗證] 嘗試 ${attempt} 失敗:`, err.message);
+                        lastError = err;
+                        if (attempt < maxRetries) {
+                            const delay = 1000 * attempt;
+                            console.log(`等待 ${delay}ms 後重試...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
                         }
-                        // 其他錯誤（如權限不足）直接中斷
-                        break;
                     }
                 }
-                // 所有嘗試失敗
-                throw new Error('驗證失敗：' + (lastError ? lastError.message : '請檢查網路或密碼'));
-            }
 
+                throw new Error('驗證失敗：' + (lastError ? lastError.message : '請檢查網路或 Firestore 規則'));
+            }
             // ---------- 後台登入/登出 ----------
             function showAdminLogin() {
                 const loginDiv = document.getElementById('adminLoginArea');
@@ -1805,41 +1808,47 @@
                 loginDiv.style.display = 'block';
                 contentDiv.style.display = 'none';
                 loginDiv.innerHTML = `
-                    <div class="login-prompt">
-                        <i class="fas fa-lock"></i>
-                        <h3>管理者驗證</h3>
-                        <p>請輸入後台管理密碼</p>
-                        <input type="password" id="adminPwd" placeholder="請輸入密碼" style="font-family:inherit;">
-                        <br>
-                        <button id="loginSubmitBtn" class="btn-gold" style="margin-top:10px;">登入後台</button>
-                        <p id="loginMsg" style="color:#a13e2a; margin-top:10px;"></p>
-                    </div>
-                `;
+        <div class="login-prompt">
+            <i class="fas fa-lock"></i>
+            <h3>管理者驗證</h3>
+            <p>請輸入後台管理密碼</p>
+            <input type="password" id="adminPwd" placeholder="請輸入密碼" style="font-family:inherit;">
+            <br>
+            <button id="loginSubmitBtn" class="btn-gold" style="margin-top:10px;">登入後台</button>
+            <p id="loginMsg" style="color:#a13e2a; margin-top:10px;"></p>
+        </div>
+    `;
 
                 document.getElementById('loginSubmitBtn')?.addEventListener('click', async () => {
                     const pwd = document.getElementById('adminPwd').value;
                     const msgEl = document.getElementById('loginMsg');
                     if (!pwd) {
                         msgEl.innerText = '請輸入密碼';
+                        msgEl.style.color = '#a13e2a';
                         return;
                     }
                     if (!db || !fns) {
                         msgEl.innerText = '⚠️ 雲端尚未連線，請稍後再試';
+                        msgEl.style.color = '#a13e2a';
                         return;
                     }
                     msgEl.innerText = '⏳ 驗證中...';
                     msgEl.style.color = '#000';
                     try {
+                        console.log('[登入] 開始驗證密碼...');
                         const isValid = await verifyPassword(pwd);
+                        console.log('[登入] 驗證結果:', isValid);
                         if (isValid) {
                             adminLogged = true;
-                            showAdminLogin();
+                            console.log('[登入] 登入成功，切換 UI');
+                            showAdminLogin();  // 重新執行以顯示管理內容
                             showSyncStatus('✅ 已登入管理後台', 2000);
                         } else {
                             msgEl.innerText = '❌ 密碼錯誤，請重新輸入';
                             msgEl.style.color = '#a13e2a';
                         }
                     } catch (err) {
+                        console.error('[登入] 錯誤:', err);
                         msgEl.innerText = '❌ ' + err.message;
                         msgEl.style.color = '#a13e2a';
                     }
